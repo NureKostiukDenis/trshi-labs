@@ -28,6 +28,8 @@
 \RequirePackage[a4paper, top=2cm, bottom=2cm, left=2.5cm, right=1cm]{geometry}
 \RequirePackage{indentfirst}
 \RequirePackage[hidelinks]{hyperref}
+\AtBeginDocument{\urlstyle{same}}
+
 \RequirePackage{xcolor}
 \RequirePackage{lipsum}
 \RequirePackage{caption}
@@ -35,6 +37,7 @@
 \RequirePackage{float}
 \RequirePackage{cleveref}
 \RequirePackage[none]{hyphenat}
+
 \sloppy
 
 % Бібліографія (BibTeX з ugost2008 під вимоги ДСТУ 8302:2015 без довгих тире .—)
