@@ -1,10 +1,15 @@
 import re
+import shutil
 from pathlib import Path
 
 import mwparserfromhell
 from tqdm import tqdm
 
 from wiki_tables import convert_wikitables_to_markdown
+
+BLACKLISTED_WIKI_PAGES = {
+    "Recycler Blacklist (Data)",
+}
 
 COLOR_TEMPLATES = {"color", "colour", "textcolor", "bg", "bgcolor", "nowrap"}
 
@@ -191,6 +196,45 @@ def _replace_ref_tags(text: str) -> str:
     )
 
 
+def _unwrap_infobox_templates(text: str) -> str:
+    """Convert {{Infobox ...}} templates into '(Key: Value, ...)' summaries."""
+    wikicode = mwparserfromhell.parse(text)
+    for template in reversed(wikicode.filter_templates(recursive=True)):
+        name = str(template.name).strip().lower()
+        if not name.startswith("infobox"):
+            continue
+        pairs: list[str] = []
+        for param in template.params:
+            key = str(param.name).strip()
+            if key.lower() in ("image", "img"):
+                continue
+            val = str(param.value).strip()
+            if not val:
+                continue
+            pairs.append(f"{key.capitalize()}: {val}")
+        replacement = f"({', '.join(pairs)})\n\n" if pairs else ""
+        try:
+            wikicode.replace(template, replacement)
+        except ValueError:
+            pass
+    return str(wikicode)
+
+
+def _unwrap_wikilinks(text: str) -> str:
+    """Convert [[Target|Label]] -> Label and [[Target]] -> Target (preserving [[Category:...]])."""
+    wikicode = mwparserfromhell.parse(text)
+    for link in reversed(wikicode.filter_wikilinks(recursive=True)):
+        title = str(link.title).strip()
+        if title.lower().startswith("category:"):
+            continue
+        label = str(link.text).strip() if link.text is not None else title
+        try:
+            wikicode.replace(link, label)
+        except ValueError:
+            pass
+    return str(wikicode)
+
+
 def _replace_gallery_tags(text: str) -> str:
     """Replace <gallery>...</gallery> blocks with their extracted image captions."""
 
@@ -224,6 +268,8 @@ def clean_wikitext_styling(text: str) -> str:
     text = _unwrap_color_templates(text)
     text = _replace_gallery_tags(text)
     text = _remove_file_links(text)
+    text = _unwrap_infobox_templates(text)
+    text = _unwrap_wikilinks(text)
     text = _replace_ref_tags(text)
     text = BR_PATTERN.sub(" ", text)
     text = STYLE_TAG_OPEN_CLOSE.sub("", text)
@@ -246,7 +292,14 @@ def clean_wikitext_styling(text: str) -> str:
 
 def clean_wiki_pages(source_root: Path, target_root: Path) -> int:
     """Clean all .txt wiki files from source_root and write results to target_root."""
-    files = sorted(p for p in source_root.rglob("*.txt") if p.is_file())
+    if target_root.exists():
+        shutil.rmtree(target_root)
+
+    files = sorted(
+        p
+        for p in source_root.rglob("*.txt")
+        if p.is_file() and p.stem not in BLACKLISTED_WIKI_PAGES
+    )
     count_cleaned = 0
 
     for src_path in tqdm(files, desc="Cleaning wiki styling", unit="file"):

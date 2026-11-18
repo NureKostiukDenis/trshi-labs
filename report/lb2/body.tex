@@ -22,28 +22,58 @@
     Книга квестів (\href{https://github.com/GTNewHorizons/GT-New-Horizons-Modpack/tree/master/config/betterquesting/DefaultQuests/Quests}{посилання}) & Офіційний гіт, що містить приблизно 3800 структурованих квестів у вигляді JSON із описами механік та вимогами прогресії. \newline \textbf{Ліцензія:} CC BY-SA 4.0. & Автоматизоване вивантаження із гіту готових JSON файлів. \\
 \end{table}
 
-Для автоматизованого завантаження даних у модулі \texttt{src/pipeline.py} реалізовано два етапи:
+Для автоматизованого завантаження даних у модулі src/pipeline.py реалізовано три етапи:
 \begin{dashlist}[wide]
-    \item \textbf{Завантаження статей вікі (\texttt{download\_wiki\_pages}):} за допомогою бібліотеки \texttt{pywikibot} виконується пакетний обхід основного простору імен (\texttt{namespace=0}) без перенаправлень. Кожна стаття зберігається у каталог \texttt{data/wiki/} з перевіркою MD5-хешу локальної копії, щоб пропускати незмінені сторінки при повторному запуску (завантажено 535 файлів).
-    \item \textbf{Завантаження квестів із Git (\texttt{download\_git\_quests}):} через часткове клонування репозиторію (\texttt{git clone --depth=1 --filter=blob:none} та \texttt{sparse-checkout}) у тимчасовий каталог вивантажується лише директорія \texttt{config/betterquesting/DefaultQuests/Quests}, після чого до папки \texttt{data/quests/} переносяться виключно файли квестів без службових файлів репозиторію.
+    \item \textbf{Завантаження статей вікі (download\_wiki\_pages):} за допомогою бібліотеки pywikibot виконується пакетний обхід основного простору імен (\texttt{namespace=0}) без перенаправлень. Кожна стаття зберігається у каталог data/wiki/ з перевіркою MD5-хешу локальної копії, щоб пропускати незмінені сторінки при повторному запуску (завантажено 535 файлів).
+    \item \textbf{Завантаження квестів із Git (download\_git\_quests):} через часткове клонування репозиторію (\texttt{git clone --depth=1 --filter=blob:none} та \texttt{sparse-checkout}) у тимчасовий каталог вивантажується лише директорія config/betterquesting/DefaultQuests/Quests, після чого до папки data/quests/ переносяться виключно файли квестів без службових файлів репозиторію.
+    \item \textbf{Експорт бази предметів і рецептів (nesql-exporter):} наявна версія інструменту nesql-exporter виявилася застарілою відносно актуальної збірки GTNH (несумісність із оновленими класами та плагінами гри), тому його довелося оновити та перезібрати перед вивантаженням бази.
 \end{dashlist}
 
 
 \section{Підготовка даних}
 
-Пайплайн підготовки реалізовано у вигляді послідовних кроків у \texttt{src/pipeline.py} з винесенням логіки очищення до окремих модулів \texttt{src/clean\_wiki.py} та \texttt{src/wiki\_tables.py}. Сирі вивантажені матеріали зберігаються в \texttt{data/wiki/}, а оброблені тексти записуються в окрему директорію \texttt{data/wiki\_clean/}, що дозволяє не перезаписувати первинні дані та повторно запускати очищення без повторного звернення до API.
+Пайплайн підготовки реалізовано у вигляді послідовних кроків у src/pipeline.py з винесенням окремих етапів до модулів src/pipeline/clean\_wiki.py, src/pipeline/wiki\_tables.py, src/pipeline/clean\_quests.py, src/pipeline/enrich\_quests.py та src/pipeline/config.py. Сирі вивантажені матеріали зберігаються в data/wiki/ та data/quests/, очищені -- у data/wiki\_clean/ та data/quests\_clean/, а збагачені квести -- у data/quests\_enriched/, що дозволяє не перезаписувати первинні дані й повторно запускати обробку без звернення до API або Git.
 
 
 \section{Очищення даних}
 
-На етапі очищення оброблено 535 файлів статей із \texttt{data/wiki/} у \texttt{data/wiki\_clean/}. У функції \texttt{clean\_wikitext\_styling} виконано такі перетворення:
+Очищення даних відбувається окремо для статей вікі та квестів (різними модулями й у різні вихідні каталоги). На обох напрямках видаляються службові та технічні розмітки, що не несуть змістовної інформації для пошуку.
+
+Із 535 завантажених файлів статей вікі у модулі src/pipeline/clean\_wiki.py (data/wiki/ $\rightarrow$ data/wiki\_clean/) сформовано 534 очищені файли (технічну сторінку-дамп <<Recycler Blacklist (Data)>> виключено через чорний список \texttt{BLACKLISTED\_WIKI\_PAGES}):
 \begin{dashlist}[wide]
-    \item \textbf{Видалення стилістичних шаблонів:} за допомогою \texttt{mwparserfromhell} розгорнуто шаблони кольору та перенесення (\texttt{\{\{Color|...\}\}}, \texttt{\{\{Colour|...\}\}}, \texttt{\{\{nowrap|...\}\}}) зі збереженням їхнього текстового вмісту (зокрема при іменованому параметрі \texttt{text=}).
-    \item \textbf{Очищення зображень і галерей:} видалено теги \texttt{[[File:...]]}, \texttt{[[Image:...]]} та блоки \texttt{<gallery>...</gallery>}, водночас текстові підписи до зображень збережено в тексті.
+    \item \textbf{Видалення стилістичних шаблонів:} за допомогою mwparserfromhell розгорнуто шаблони кольору та перенесення (\texttt{\{\{Color|...\}\}}, \texttt{\{\{Colour|...\}\}}, \texttt{\{\{nowrap|...\}\}}) зі збереженням їхнього текстового вмісту (зокрема при іменованому параметрі \texttt{text=}), а блоки \texttt{\{\{Infobox ...\}\}} зведено до компактного переліку \texttt{(Key: Value, ...)}.
+    \item \textbf{Очищення зображень, галерей і вікі-посилань:} видалено теги \texttt{[[File:...]]}, \texttt{[[Image:...]]} та блоки \texttt{<gallery>...</gallery>} зі збереженням текстових підписів; внутрішні посилання \texttt{[[Target|Label]]} розгорнуто в \texttt{Label}.
     \item \textbf{Обробка зносок і HTML-тегів:} зноски \texttt{<ref>...</ref>} перетворено на текст у круглих дужках поряд із відповідним фрагментом, а порожні посилання \texttt{<ref .../>} і \texttt{<references />} видалено. Прибрано HTML-коментарі та теги форматування/контейнерів (\texttt{<span>}, \texttt{<font>}, \texttt{<div>}, \texttt{<blockquote>}, \texttt{<code>}, \texttt{<br>}, \texttt{<div/>} тощо) зі збереженням внутрішнього тексту.
     \item \textbf{Видалення інлайн-стилів і розмітки виділення:} прибрано атрибути \texttt{style}, \texttt{class}, \texttt{bgcolor}, \texttt{width}, \texttt{align} тощо, а також лапки жирного та курсивного виділення (\texttt{''...''}, \texttt{'''...'''}).
-    \item \textbf{Перетворення таблиць у Markdown:} у модулі \texttt{src/wiki\_tables.py} (\texttt{convert\_wikitables\_to\_markdown}) MediaWiki-таблиці (\texttt{\{| ... |\}}) перетворено на Markdown-таблиці. Обробка виконується знизу вгору: зовнішні таблиці розмітки (\texttt{border="0"}) розгортаються, об'єднані комірки (\texttt{rowspan}, \texttt{colspan}) дублюються у відповідні рядки та стовпці, а порожні розділювальні рядки пропускаються.
+    \item \textbf{Перетворення таблиць у Markdown:} у модулі src/pipeline/wiki\_tables.py (функція \texttt{convert\_wikitables\_to\_markdown}) MediaWiki-таблиці (\texttt{\{| ... |\}}) перетворено на Markdown-таблиці. Обробка виконується знизу вгору: зовнішні таблиці розмітки (\texttt{border="0"}) розгортаються, об'єднані комірки (\texttt{rowspan}, \texttt{colspan}) дублюються у відповідні рядки та стовпці, а порожні розділювальні рядки пропускаються.
+\end{dashlist}
+
+Для 3814 JSON-файлів квестів у модулі src/pipeline/clean\_quests.py (data/quests/ $\rightarrow$ data/quests\_clean/) виконано такі дії:
+\begin{dashlist}[wide]
+    \item видалено UI-налаштування сповіщень (\texttt{notification\_*}), звуків, анімацій, іконок та службові прапорці BetterQuesting;
+    \item прибрано Minecraft-коди кольорів і форматування (\texttt{§...}) у назвах і описах, а також NBT-суфікси типів у ключах JSON (\texttt{:1}, \texttt{:8}, \texttt{:10} тощо);
+    \item очищено технічні поля в \texttt{tasks} і відфільтровано нагороди-монети, лутбокси та їжу в \texttt{rewards} (для решти нагород залишено лише назву або \texttt{id});
+    \item очищено назви папок і JSON-файлів від base64-хешів BetterQuesting;
+    \item у \texttt{requiredItems} навмисно залишено пару \texttt{id} + \texttt{Damage}, оскільки через старі обмеження гри (Minecraft 1.7.10) на кількість числових ідентифікаторів багато об'єктів мають спільний \texttt{id}, і саме \texttt{Damage} однозначно визначає певну машину чи варіант предмета.
 \end{dashlist}
 
 
+\section{Збагачення даних}
+
+Етап збагачення реалізовано у модулі src/pipeline/enrich\_quests.py (data/quests\_clean/ $\rightarrow$ data/quests\_enriched/) із винесенням налаштувань підключення до БД у src/pipeline/config.py та config/pipeline.toml.
+
+Збагачуються лише квести -- для кожного необхідного предмета в \texttt{requiredItems} додаються єдиний внутрішній ідентифікатор (\texttt{nesql\_id}) та локалізована назва (\texttt{name}, а за наявності -- \texttt{machine\_type} і \texttt{voltage} з підказки \texttt{tooltip}). Пошук у таблиці \texttt{item} бази nesql враховує нормалізований NBT-тег предмета (із резервним переходом на запис без NBT), а за відсутності точного збігу використовується fallback на таблицю \texttt{ore\_dictionary}. Це забезпечує відповідність між загальними назвами, внутрішніми ідентифікаторами та пошуком у RAG-системі.
+
+
 \section{Чанкування}
+
+Процес чанкування побудовано модульно за патерном проєктування <<Стратегія>>: абстракція ChunkingStrategy та виконавець Chunker розміщені в src/pipeline/chunking/chunking.py, а дата-класи для серіалізації в Qdrant (GeneralChunk, WikiChunk, QuestChunk) -- у src/pipeline/data/chunks.py.
+
+\begin{dashlist}[wide]
+    \item \textbf{Чанкування та лінеаризація вікі (WikiChunkingStrategy):} статті з data/wiki\_clean/ розбиваються структурно за ієрархією заголовків (\texttt{== ... ==}, \texttt{=== ... ===}) із додаванням контекстного префікса \texttt{[Назва > Розділ]}. Короткі підрозділи (менше 300 символів) об'єднуються із сусідніми, а довгі текстові блоки діляться в межах вікна 2000 символів з перекриттям 200. Великі таблиці (понад 10 рядків даних) проходять лінеаризацію у формат \texttt{(Заголовок: Значення | ...)}, що робить кожен рядок самодостатнім для векторного пошуку; менші таблиці зберігаються у форматі Markdown.
+    \item \textbf{Чанкування квестів (QuestChunkingStrategy):} кожен збагачений квест формує чанк із префіксом \texttt{[Лінія квестів > Назва квесту]}, описом, переліком потрібних предметів із їхніми назвами та нагородами, а також із дедуплікацією \texttt{required\_items} та \texttt{required\_item\_names}. Для квестів збільшено вікно символів до 3000 (порівняно з 2000 для вікі) через велику кількість предметів у полі вимог (\texttt{requiredItems}).
+    \item \textbf{Метаінформація в payload для Qdrant:} до чанків квестів (QuestChunk) додано винагороди (\texttt{rewards}), потрібні для завершення предмети (\texttt{required\_items}, \texttt{required\_item\_names}), лінійку квестів (\texttt{chapter}), а також \texttt{quest\_id}, \texttt{is\_main} і \texttt{prerequisites}. До чанків вікі (WikiChunk) додано індекс фрагмента/частину вікі (\texttt{chunk\_index}), назву статті (\texttt{title}), розділ (\texttt{section}), категорії (\texttt{categories}) і рівень напруги (\texttt{tier}).
+    \item \textbf{Окреме зберігання предметів:} предмети та рецепти з nesql не чанкуються для векторного індексу, оскільки вони зберігаються в персистентній реляційній базі даних і доступні за точними ідентифікаторами.
+\end{dashlist}
+
+У результаті сформовано 9854 чанки (6020 зі статей вікі та 3834 із квестів), а характеристики корпусу задокументовано у форматі data card у файлі report/lb2/data-card.md. Файли із данними доступні за посиланням на Google Drive \url{https://drive.google.com/drive/folders/1dky8c8IUF99APLxUCONaIVXjf-meTSa8}

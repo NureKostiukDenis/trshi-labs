@@ -1,6 +1,7 @@
 import hashlib
 import shutil
 import subprocess
+import sys
 import tempfile
 from collections.abc import Iterator
 from pathlib import Path
@@ -9,7 +10,14 @@ import pywikibot
 from pywikibot.site import BaseSite
 from tqdm import tqdm
 
+sys.path.insert(0, str(Path(__file__).resolve().parent / "pipeline"))
+
+from chunking import Chunker, QuestChunkingStrategy, WikiChunkingStrategy
+from clean_quests import clean_quests
 from clean_wiki import clean_wiki_pages
+from enrich_quests import enrich_quests
+
+from config import load_config
 
 WIKI_URL = "https://wiki.gtnewhorizons.com/wiki/Main_Page"
 GIT_URL = "https://github.com/GTNewHorizons/GT-New-Horizons-Modpack/tree/master"
@@ -122,13 +130,31 @@ def download_git_quests(root: Path) -> int:
 
 
 def main() -> None:
-    WIKI_PATH = Path("data/wiki/")
-    WIKI_CLEAN_PATH = Path("data/wiki_clean/")
-    QUESTS_PATH = Path("data/quests/")
+    cfg = load_config()
 
-    # download_wiki_pages(WIKI_PATH, None)
-    # download_git_quests(QUESTS_PATH)
-    clean_wiki_pages(WIKI_PATH, WIKI_CLEAN_PATH)
+    # download_wiki_pages(cfg.wiki_dir, None)
+    # download_git_quests(cfg.quests_dir)
+
+    clean_wiki_pages(cfg.wiki_dir, cfg.wiki_clean_dir)
+    clean_quests(cfg.quests_dir, cfg.quests_clean_dir)
+
+    enrich_quests(cfg.quests_clean_dir, cfg.quests_enriched_dir, cfg.db)
+
+    chunker = Chunker(QuestChunkingStrategy())
+
+    chunker.chunk_directory(
+        cfg.quests_enriched_dir if cfg.quests_enriched_dir.exists() else cfg.quests_clean_dir,
+        glob_pattern="*.json",
+        output_jsonl=cfg.chunks_dir / "quest_chunks.jsonl",
+    )
+
+    chunker = Chunker(WikiChunkingStrategy())
+
+    chunker.chunk_directory(
+        cfg.wiki_clean_dir,
+        glob_pattern="*.txt",
+        output_jsonl=cfg.chunks_dir / "wiki_chunks.jsonl",
+    )
 
 
 if __name__ == "__main__":

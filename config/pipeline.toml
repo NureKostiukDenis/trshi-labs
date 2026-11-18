@@ -1,0 +1,21 @@
+[sources]
+wiki_url = "https://wiki.gtnewhorizons.com/wiki/Main_Page"
+git_url = "https://github.com/GTNewHorizons/GT-New-Horizons-Modpack/tree/master"
+git_quests_path = "/config/betterquesting/DefaultQuests/Quests"
+
+[paths]
+wiki_dir = "data/wiki"
+wiki_clean_dir = "data/wiki_clean"
+quests_dir = "data/quests"
+quests_clean_dir = "data/quests_clean"
+quests_enriched_dir = "data/quests_enriched"
+chunks_dir = "data/chunks"
+
+[database]
+backend = "postgres"
+sqlite_path = "data/nesql.db"
+pg_host = "localhost"
+pg_port = 5432
+pg_database = "gtnh-recepties"
+pg_user = "postgres"
+pg_password = "gthn"
