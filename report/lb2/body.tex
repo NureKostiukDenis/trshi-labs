@@ -22,12 +22,28 @@
     Книга квестів (\href{https://github.com/GTNewHorizons/GT-New-Horizons-Modpack/tree/master/config/betterquesting/DefaultQuests/Quests}{посилання}) & Офіційний гіт, що містить приблизно 3800 структурованих квестів у вигляді JSON із описами механік та вимогами прогресії. \newline \textbf{Ліцензія:} CC BY-SA 4.0. & Автоматизоване вивантаження із гіту готових JSON файлів. \\
 \end{table}
 
+Для автоматизованого завантаження даних у модулі \texttt{src/pipeline.py} реалізовано два етапи:
+\begin{dashlist}[wide]
+    \item \textbf{Завантаження статей вікі (\texttt{download\_wiki\_pages}):} за допомогою бібліотеки \texttt{pywikibot} виконується пакетний обхід основного простору імен (\texttt{namespace=0}) без перенаправлень. Кожна стаття зберігається у каталог \texttt{data/wiki/} з перевіркою MD5-хешу локальної копії, щоб пропускати незмінені сторінки при повторному запуску (завантажено 535 файлів).
+    \item \textbf{Завантаження квестів із Git (\texttt{download\_git\_quests}):} через часткове клонування репозиторію (\texttt{git clone --depth=1 --filter=blob:none} та \texttt{sparse-checkout}) у тимчасовий каталог вивантажується лише директорія \texttt{config/betterquesting/DefaultQuests/Quests}, після чого до папки \texttt{data/quests/} переносяться виключно файли квестів без службових файлів репозиторію.
+\end{dashlist}
 
 
 \section{Підготовка даних}
 
+Пайплайн підготовки реалізовано у вигляді послідовних кроків у \texttt{src/pipeline.py} з винесенням логіки очищення до окремих модулів \texttt{src/clean\_wiki.py} та \texttt{src/wiki\_tables.py}. Сирі вивантажені матеріали зберігаються в \texttt{data/wiki/}, а оброблені тексти записуються в окрему директорію \texttt{data/wiki\_clean/}, що дозволяє не перезаписувати первинні дані та повторно запускати очищення без повторного звернення до API.
+
 
 \section{Очищення даних}
+
+На етапі очищення оброблено 535 файлів статей із \texttt{data/wiki/} у \texttt{data/wiki\_clean/}. У функції \texttt{clean\_wikitext\_styling} виконано такі перетворення:
+\begin{dashlist}[wide]
+    \item \textbf{Видалення стилістичних шаблонів:} за допомогою \texttt{mwparserfromhell} розгорнуто шаблони кольору та перенесення (\texttt{\{\{Color|...\}\}}, \texttt{\{\{Colour|...\}\}}, \texttt{\{\{nowrap|...\}\}}) зі збереженням їхнього текстового вмісту (зокрема при іменованому параметрі \texttt{text=}).
+    \item \textbf{Очищення зображень і галерей:} видалено теги \texttt{[[File:...]]}, \texttt{[[Image:...]]} та блоки \texttt{<gallery>...</gallery>}, водночас текстові підписи до зображень збережено в тексті.
+    \item \textbf{Обробка зносок і HTML-тегів:} зноски \texttt{<ref>...</ref>} перетворено на текст у круглих дужках поряд із відповідним фрагментом, а порожні посилання \texttt{<ref .../>} і \texttt{<references />} видалено. Прибрано HTML-коментарі та теги форматування/контейнерів (\texttt{<span>}, \texttt{<font>}, \texttt{<div>}, \texttt{<blockquote>}, \texttt{<code>}, \texttt{<br>}, \texttt{<div/>} тощо) зі збереженням внутрішнього тексту.
+    \item \textbf{Видалення інлайн-стилів і розмітки виділення:} прибрано атрибути \texttt{style}, \texttt{class}, \texttt{bgcolor}, \texttt{width}, \texttt{align} тощо, а також лапки жирного та курсивного виділення (\texttt{''...''}, \texttt{'''...'''}).
+    \item \textbf{Перетворення таблиць у Markdown:} у модулі \texttt{src/wiki\_tables.py} (\texttt{convert\_wikitables\_to\_markdown}) MediaWiki-таблиці (\texttt{\{| ... |\}}) перетворено на Markdown-таблиці. Обробка виконується знизу вгору: зовнішні таблиці розмітки (\texttt{border="0"}) розгортаються, об'єднані комірки (\texttt{rowspan}, \texttt{colspan}) дублюються у відповідні рядки та стовпці, а порожні розділювальні рядки пропускаються.
+\end{dashlist}
 
 
 \section{Чанкування}

@@ -9,6 +9,8 @@ import pywikibot
 from pywikibot.site import BaseSite
 from tqdm import tqdm
 
+from clean_wiki import clean_wiki_pages
+
 WIKI_URL = "https://wiki.gtnewhorizons.com/wiki/Main_Page"
 GIT_URL = "https://github.com/GTNewHorizons/GT-New-Horizons-Modpack/tree/master"
 GIT_QUESTS_PATH = "/config/betterquesting/DefaultQuests/Quests"
@@ -121,10 +123,12 @@ def download_git_quests(root: Path) -> int:
 
 def main() -> None:
     WIKI_PATH = Path("data/wiki/")
+    WIKI_CLEAN_PATH = Path("data/wiki_clean/")
     QUESTS_PATH = Path("data/quests/")
 
     # download_wiki_pages(WIKI_PATH, None)
-    download_git_quests(QUESTS_PATH)
+    # download_git_quests(QUESTS_PATH)
+    clean_wiki_pages(WIKI_PATH, WIKI_CLEAN_PATH)
 
 
 if __name__ == "__main__":

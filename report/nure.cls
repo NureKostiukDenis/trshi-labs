@@ -21,7 +21,8 @@
     UprightFont = LiberationMono-Regular,
     BoldFont = LiberationMono-Bold,
     ItalicFont = LiberationMono-Italic,
-    BoldItalicFont = LiberationMono-BoldItalic
+    BoldItalicFont = LiberationMono-BoldItalic,
+    Scale = 0.785
 ]
 
 \RequirePackage[english,ukrainian]{babel}
