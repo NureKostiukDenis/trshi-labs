@@ -5,7 +5,7 @@ from typing import Any
 
 from tqdm import tqdm
 
-from data import GeneralChunk
+from pipeline.data import GeneralChunk
 
 
 class ChunkingStrategy(ABC):

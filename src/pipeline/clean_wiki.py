@@ -5,7 +5,7 @@ from pathlib import Path
 import mwparserfromhell
 from tqdm import tqdm
 
-from wiki_tables import convert_wikitables_to_markdown
+from pipeline.wiki_tables import convert_wikitables_to_markdown
 
 BLACKLISTED_WIKI_PAGES = {
     "Recycler Blacklist (Data)",
@@ -159,11 +159,7 @@ def _extract_file_caption(link_text: str) -> str:
         if not part:
             continue
         lowered = part.lower()
-        if (
-            lowered in FILE_OPTION_KEYWORDS
-            or FILE_SIZE_PATTERN.match(part)
-            or FILE_KV_OPTION_PATTERN.match(part)
-        ):
+        if lowered in FILE_OPTION_KEYWORDS or FILE_SIZE_PATTERN.match(part) or FILE_KV_OPTION_PATTERN.match(part):
             continue
         caption_parts.append(part)
     return " ".join(caption_parts).strip()
@@ -295,11 +291,7 @@ def clean_wiki_pages(source_root: Path, target_root: Path) -> int:
     if target_root.exists():
         shutil.rmtree(target_root)
 
-    files = sorted(
-        p
-        for p in source_root.rglob("*.txt")
-        if p.is_file() and p.stem not in BLACKLISTED_WIKI_PAGES
-    )
+    files = sorted(p for p in source_root.rglob("*.txt") if p.is_file() and p.stem not in BLACKLISTED_WIKI_PAGES)
     count_cleaned = 0
 
     for src_path in tqdm(files, desc="Cleaning wiki styling", unit="file"):

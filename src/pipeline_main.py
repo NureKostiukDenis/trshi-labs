@@ -1,7 +1,6 @@
 import hashlib
 import shutil
 import subprocess
-import sys
 import tempfile
 from collections.abc import Iterator
 from pathlib import Path
@@ -10,14 +9,11 @@ import pywikibot
 from pywikibot.site import BaseSite
 from tqdm import tqdm
 
-sys.path.insert(0, str(Path(__file__).resolve().parent / "pipeline"))
-
-from chunking import Chunker, QuestChunkingStrategy, WikiChunkingStrategy
-from clean_quests import clean_quests
-from clean_wiki import clean_wiki_pages
-from enrich_quests import enrich_quests
-
 from config import load_config
+from pipeline.chunking import Chunker, QuestChunkingStrategy, WikiChunkingStrategy
+from pipeline.clean_quests import clean_quests
+from pipeline.clean_wiki import clean_wiki_pages
+from pipeline.enrich_quests import enrich_quests
 
 WIKI_URL = "https://wiki.gtnewhorizons.com/wiki/Main_Page"
 GIT_URL = "https://github.com/GTNewHorizons/GT-New-Horizons-Modpack/tree/master"

@@ -2,8 +2,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from chunking.chunking import Chunker, ChunkingStrategy
-from data import QuestChunk
+from pipeline.chunking.chunker import Chunker, ChunkingStrategy
+from pipeline.data import QuestChunk
 
 
 def _format_item_id(item: dict[str, Any]) -> str:

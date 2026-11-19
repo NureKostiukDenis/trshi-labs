@@ -11,7 +11,7 @@ from config import DatabaseConfig, get_db_connection, load_config
 
 MACHINE_TYPE_PATTERN = re.compile(r"^Machine Type:\s*(.+)$", re.MULTILINE)
 VOLTAGE_PATTERN = re.compile(r"^Voltage IN:\s*(.+)$", re.MULTILINE)
-SNBT_KEY_PATTERN = re.compile(r'([{,])\s*([A-Za-z0-9_.-]+)\s*:')
+SNBT_KEY_PATTERN = re.compile(r"([{,])\s*([A-Za-z0-9_.-]+)\s*:")
 SNBT_NUM_SUFFIX_PATTERN = re.compile(r":\s*(-?\d+(?:\.\d+)?)[bslfdBSLFD]\b")
 
 
@@ -84,10 +84,7 @@ def load_item_lookup(db_config: DatabaseConfig) -> ItemLookup:
     any_item: dict[tuple[str, str, int], ItemInfo] = {}
     ore_dict: dict[str, str] = {}
 
-    item_query = (
-        "SELECT id, mod_id, internal_name, item_damage, localized_name, tooltip, nbt "
-        "FROM item"
-    )
+    item_query = "SELECT id, mod_id, internal_name, item_damage, localized_name, tooltip, nbt FROM item"
     ore_query = "SELECT id, name FROM ore_dictionary"
 
     with get_db_connection(db_config) as conn:
@@ -229,8 +226,7 @@ def enrich_quest_data(
             req_items = new_task.get("requiredItems")
             if isinstance(req_items, list):
                 new_task["requiredItems"] = [
-                    _enrich_item(item, item_lookup) if isinstance(item, dict) else item
-                    for item in req_items
+                    _enrich_item(item, item_lookup) if isinstance(item, dict) else item for item in req_items
                 ]
             new_tasks.append(new_task)
         enriched["tasks"] = new_tasks

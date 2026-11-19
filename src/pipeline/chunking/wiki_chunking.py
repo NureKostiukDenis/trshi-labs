@@ -2,8 +2,8 @@ import re
 from pathlib import Path
 from typing import Any
 
-from chunking.chunking import Chunker, ChunkingStrategy
-from data import WikiChunk
+from pipeline.chunking.chunker import Chunker, ChunkingStrategy
+from pipeline.data import WikiChunk
 
 HEADING_PATTERN = re.compile(r"^(={2,6})\s*(.+?)\s*\1\s*$")
 CATEGORY_PATTERN = re.compile(r"\[\[Category:([^\]|]+)(?:\|[^\]]*)?\]\]", re.IGNORECASE)
@@ -76,11 +76,7 @@ def _linearize_markdown_table(lines: list[str]) -> list[str]:
     linearized: list[str] = []
     for row_line in lines[2:]:
         cells = parse_row(row_line)
-        pairs = [
-            f"{headers[idx]}: {cells[idx]}"
-            for idx in range(min(len(headers), len(cells)))
-            if cells[idx]
-        ]
+        pairs = [f"{headers[idx]}: {cells[idx]}" for idx in range(min(len(headers), len(cells))) if cells[idx]]
         if pairs:
             linearized.append("(" + " | ".join(pairs) + ")")
     return linearized
@@ -127,9 +123,7 @@ class WikiChunkingStrategy(ChunkingStrategy):
         self.linearize_table_min_rows = linearize_table_min_rows
         self.min_chars = min_chars
 
-    def _merge_short_sections(
-        self, sections: list[tuple[str, str]]
-    ) -> list[tuple[str, str]]:
+    def _merge_short_sections(self, sections: list[tuple[str, str]]) -> list[tuple[str, str]]:
         """Merge short sections (< min_chars) with adjacent sections within max_chars."""
         if len(sections) <= 1 or self.min_chars <= 0:
             return sections
@@ -163,11 +157,7 @@ class WikiChunkingStrategy(ChunkingStrategy):
                 path = combine_paths(path, next_path)
                 i += 1
 
-            if (
-                len(body) < self.min_chars
-                and merged
-                and len(merged[-1][1]) + len(body) + 20 <= budget
-            ):
+            if len(body) < self.min_chars and merged and len(merged[-1][1]) + len(body) + 20 <= budget:
                 prev_path, prev_body = merged[-1]
                 merged[-1] = (
                     combine_paths(prev_path, path),
