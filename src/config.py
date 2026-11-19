@@ -29,9 +29,7 @@ class IndexConfig:
     device: str | None = None
     batch_size: int = 64
     normalize_embeddings: bool = True
-    chunk_files: list[str] = field(
-        default_factory=lambda: ["wiki_chunks.jsonl", "quest_chunks.jsonl"]
-    )
+    chunk_files: list[str] = field(default_factory=lambda: ["wiki_chunks.jsonl", "quest_chunks.jsonl"])
 
 
 @dataclass
@@ -44,6 +42,19 @@ class QdrantConfig:
     api_key: str = ""
     collection_name: str = "gtnh_rag"
     distance: str = "cosine"
+    hnsw_m: int = 16
+    hnsw_ef_construct: int = 100
+
+
+@dataclass
+class SearchConfig:
+    """Configuration for retrieval parameters (recall/precision tuning)."""
+
+    top_k: int = 10
+    hnsw_ef: int = 256
+    exact: bool = False
+    score_threshold: float | None = None
+    query_instruction: str = "Represent this sentence for searching relevant passages: "
 
 
 @dataclass
@@ -62,6 +73,7 @@ class PipelineConfig:
     db: DatabaseConfig = field(default_factory=DatabaseConfig)
     index: IndexConfig = field(default_factory=IndexConfig)
     qdrant: QdrantConfig = field(default_factory=QdrantConfig)
+    search: SearchConfig = field(default_factory=SearchConfig)
 
 
 def load_config(config_path: Path = DEFAULT_CONFIG_FILE) -> PipelineConfig:
@@ -75,6 +87,7 @@ def load_config(config_path: Path = DEFAULT_CONFIG_FILE) -> PipelineConfig:
     db_cfg = raw.get("database", {})
     index_cfg = raw.get("index", {})
     qdrant_cfg = raw.get("qdrant", {})
+    search_cfg = raw.get("search", {})
 
     db = DatabaseConfig(
         backend=os.getenv("NESQL_DB_BACKEND", db_cfg.get("backend", "sqlite")),
@@ -90,12 +103,8 @@ def load_config(config_path: Path = DEFAULT_CONFIG_FILE) -> PipelineConfig:
         model_name=os.getenv("INDEX_MODEL_NAME", index_cfg.get("model_name", IndexConfig.model_name)),
         device=os.getenv("INDEX_DEVICE", index_cfg.get("device")),
         batch_size=int(os.getenv("INDEX_BATCH_SIZE", index_cfg.get("batch_size", IndexConfig.batch_size))),
-        normalize_embeddings=bool(
-            index_cfg.get("normalize_embeddings", IndexConfig.normalize_embeddings)
-        ),
-        chunk_files=list(
-            index_cfg.get("chunk_files", ["wiki_chunks.jsonl", "quest_chunks.jsonl"])
-        ),
+        normalize_embeddings=bool(index_cfg.get("normalize_embeddings", IndexConfig.normalize_embeddings)),
+        chunk_files=list(index_cfg.get("chunk_files", ["wiki_chunks.jsonl", "quest_chunks.jsonl"])),
     )
 
     qdrant = QdrantConfig(
@@ -107,8 +116,26 @@ def load_config(config_path: Path = DEFAULT_CONFIG_FILE) -> PipelineConfig:
             "QDRANT_COLLECTION",
             qdrant_cfg.get("collection_name", QdrantConfig.collection_name),
         ),
-        distance=os.getenv(
-            "QDRANT_DISTANCE", qdrant_cfg.get("distance", QdrantConfig.distance)
+        distance=os.getenv("QDRANT_DISTANCE", qdrant_cfg.get("distance", QdrantConfig.distance)),
+        hnsw_m=int(os.getenv("QDRANT_HNSW_M", qdrant_cfg.get("hnsw_m", QdrantConfig.hnsw_m))),
+        hnsw_ef_construct=int(
+            os.getenv(
+                "QDRANT_HNSW_EF_CONSTRUCT",
+                qdrant_cfg.get("hnsw_ef_construct", QdrantConfig.hnsw_ef_construct),
+            )
+        ),
+    )
+
+    raw_threshold = os.getenv("SEARCH_SCORE_THRESHOLD", search_cfg.get("score_threshold"))
+    score_threshold = float(raw_threshold) if raw_threshold not in (None, "") else None
+    search = SearchConfig(
+        top_k=int(os.getenv("SEARCH_TOP_K", search_cfg.get("top_k", SearchConfig.top_k))),
+        hnsw_ef=int(os.getenv("SEARCH_HNSW_EF", search_cfg.get("hnsw_ef", SearchConfig.hnsw_ef))),
+        exact=bool(search_cfg.get("exact", SearchConfig.exact)),
+        score_threshold=score_threshold,
+        query_instruction=os.getenv(
+            "SEARCH_QUERY_INSTRUCTION",
+            search_cfg.get("query_instruction", SearchConfig.query_instruction),
         ),
     )
 
@@ -125,6 +152,7 @@ def load_config(config_path: Path = DEFAULT_CONFIG_FILE) -> PipelineConfig:
         db=db,
         index=index,
         qdrant=qdrant,
+        search=search,
     )
 
 

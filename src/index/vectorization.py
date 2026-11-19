@@ -5,12 +5,16 @@ from typing import Any
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
+    Filter,
+    HnswConfigDiff,
+    OptimizersConfigDiff,
     PayloadSchemaType,
     PointStruct,
+    SearchParams,
     VectorParams,
 )
 
-from src.config import QdrantConfig, get_qdrant_client
+from src.config import QdrantConfig, SearchConfig, get_qdrant_client
 
 DISTANCE_MAP: dict[str, Distance] = {
     "cosine": Distance.COSINE,
@@ -86,7 +90,31 @@ class QdrantVectorizer:
         self.client.create_collection(
             collection_name=self.collection_name,
             vectors_config=VectorParams(size=vector_size, distance=distance),
+            hnsw_config=HnswConfigDiff(
+                m=self.config.hnsw_m,
+                ef_construct=self.config.hnsw_ef_construct,
+            ),
+            optimizers_config=OptimizersConfigDiff(indexing_threshold=1000),
         )
+
+    def search(
+        self,
+        vector: list[float],
+        *,
+        search_config: SearchConfig | None = None,
+        limit: int | None = None,
+        query_filter: Filter | None = None,
+    ) -> list[Any]:
+        """Query Qdrant using configured HNSW search params and score threshold."""
+        sc = search_config or SearchConfig()
+        return self.client.query_points(
+            collection_name=self.collection_name,
+            query=vector,
+            query_filter=query_filter,
+            limit=limit if limit is not None else sc.top_k,
+            score_threshold=sc.score_threshold,
+            search_params=SearchParams(hnsw_ef=sc.hnsw_ef, exact=sc.exact),
+        ).points
 
     def create_payload_indexes(
         self,

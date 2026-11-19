@@ -1,2 +1,97 @@
 \phantomsection
 \chapter{Процес виконання}
+\section{Формування набору тестів}
+
+Для оцінювання якості пошуку сформовано тестовий набір tests/eval-set.jsonl обсягом 15 пар <<запит -- релевантний чанк>>.
+
+\textbf{Принцип відбору чанків і формулювання запитів:}
+\begin{dashlist}[wide]
+    \item Чанки відбиралися вручну з обох частин корпусу (data/chunks/wiki\_chunks.jsonl та data/chunks/quest\_chunks.jsonl) із різних предметних розділів і лінійок квестів (Tier05Steam, Tier1LV, MassProcessing, мультиблоки GregTech, бджільництво/дерева, інструменти Tinkers Construct та GT Tools) за умови наявності змістовного опису.
+    \item До набору увійшли 7 чанків із книги квестів і 8 чанків зі статей вікі.
+    \item Запити сформульовано англійською мовою (відповідно до мови індексованого корпусу) за двома типовими сценаріями використання системи:
+    \begin{enumerate}[wide]
+        \item пошук опису конкретного квесту або механіки (7 запитів -- наприклад, переваги та вимоги Spinmatron-2737, альтернативи переходу на LV Alloy Smelter, отримання саджанців у Tree Breeding);
+        \item пошук унікального правила або пояснення, що трапляється лише в одному місці (8 запитів -- наприклад, заповнення вихідного люка Bacterial Vat на 50\%, заміна боросилікатного скла в Steam Fuser, ремонт інструмента Tinkers Construct, керування таблицею луту Dungeonchest.xml).
+    \end{enumerate}
+\end{dashlist}
+
+\textbf{Чому обраний набір є показовим:}
+\begin{dashlist}[wide]
+    \item Поєднує два структурно різні типи текстів (енциклопедичні статті вікі та стислі квести зі збагаченими назвами предметів), що перевіряє роботу єдиного векторного індексу одразу по всьому корпусу.
+    \item Містить запити на конкретні числові й технічні деталі, а не загальні описи, тому правильний чанк має бути знайдений точно серед тисяч інших (зокрема при збігу загальних слів на кшталт Alloy Smelter чи Tinkers Construct).
+    \item Включає унікальні ігрові терміни (Spinmatron-2737, Dungeonchest.xml, Ball of Moss), що дозволяє перевірити стійкість ембединг-моделі до вузькоспеціалізованої лексики та коректність розрахунку метрик Recall@5, Recall@10 і MRR@10.
+\end{dashlist}
+
+\section{Обрання моделі для sentence-transformer ембедингів}
+
+Для векторизації чанків через бібліотеку SentenceTransformers спочатку було протестовано багатомовну модель \texttt{BAAI/bge-m3}, яка підтримує кілька мов (зокрема українську й англійську). Проте під час тестування було виявлено, що вона є занадто великою за обсягом і споживанням ресурсів, при цьому на наявному наборі запитів не дає кращого результату пошуку, ніж компактніша англомовна модель.
+
+З огляду на те, що весь підготовлений корпус даних і тестові запити сформовано англійською мовою, для подальшої роботи було обрано модель \texttt{BAAI/bge-base-en-v1.5}, яка забезпечує високу якість пошуку англомовних технічних текстів при значно менших витратах пам'яті та вищій швидкості індексування.
+
+\section{Побудова векторного індексу}
+
+Для побудови та обслуговування векторного індексу було розгорнуто сервер Qdrant у Docker-контейнері (із налаштуванням параметрів HNSW-індексу та payload-індексів у загальній конфігурації config/pipeline.toml).
+
+Процес індексування реалізовано в модулях src/index/sentece\_indexig.py, src/index/vectorization.py та src/index\_main.py у такій послідовності:
+\begin{dashlist}[wide]
+    \item використано стандартні механізми бібліотеки SentenceTransformers для пакетної векторизації текстів (\texttt{encode\_texts}, \texttt{encode\_chunks\_jsonl}) з L2-нормалізацією векторів;
+    \item векторизовано поле \texttt{text} усіх підготовлених чанків (wiki\_chunks.jsonl та quest\_chunks.jsonl);
+    \item у класі QdrantVectorizer реалізовано формування структур \texttt{PointStruct} (із детермінованим UUID5-ідентифікатором, отриманим вектором і повним \texttt{payload} із метаінформацією чанку);
+    \item реалізовано функції створення колекції, додавання payload-індексів та пакетного (batch) завантаження точок \texttt{upsert\_points} у Qdrant.
+\end{dashlist}
+
+\section{Пошук top-5}
+
+Для перевірки роботи пошукового індексу через TUI-обгортку src/search.py для обраної моделі \texttt{BAAI/bge-base-en-v1.5} виконано серію тестових запитів у режимі top-5. За результатами перевірки всі потрібні релевантні чанки успішно знаходяться в перших 5 результатах видачі.
+
+Нижче наведено використані запити для кожного тестового прогону:
+\begin{dashlist}[wide]
+    \item \textbf{Прогін 1 (див. рис.~\ref{fig:top5-test-1}):} запит <<How many parallels per voltage tier does the Thermic Heating Device provide and what is it useful for?>>;
+    \item \textbf{Прогін 2 (див. рис.~\ref{fig:top5-test-2}):} запит <<Why does the mining level shown in the NEI Tool Materials tab differ from the extruder and smeltery tabs?>>;
+    \item \textbf{Прогін 3 (див. рис.~\ref{fig:top5-test-3}):} запит <<Does a Ball of Moss repair a completely broken Tinkers Construct tool?>>.
+\end{dashlist}
+
+\begin{figure}[H]
+    \centering
+    \paddedimage[width=1\textwidth]{test_1-Thermic Heating Device.png}
+    \caption{Тестовий прогін 1}
+    \label{fig:top5-test-1}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \paddedimage[width=1\textwidth]{test_2-Tinkers Tools.png}
+    \caption{Тестовий прогін 2}
+    \label{fig:top5-test-2}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \paddedimage[width=1\textwidth]{test_3-Flint and Steel.png}
+    \caption{Тестовий прогін 3}
+    \label{fig:top5-test-3}
+\end{figure}
+
+\section{Тестування за набором}
+
+Оцінювання якості пошуку проводилося скриптом tests/eval\_retrieval.py на підготовленому наборі tests/eval-set.jsonl (15 запитів) із розрахунком метрик Recall@5, Recall@10 та MRR@10. Для обох порівнюваних моделей використовувалися однакові параметри векторизації та пошуку в Qdrant (нормалізація векторів, метрика \texttt{cosine}, параметри HNSW-індексу, порожня інструкція запиту \texttt{query\_instruction} й обмеження \texttt{top\_k=10}), змінювалася лише сама модель ембедингів.
+
+За результатами тестування (див. рис.~\ref{fig:eval-bge-v15} та рис.~\ref{fig:eval-bge-v3}) обидві моделі показали однакові підсумкові показники повноти (Recall@5 = 93.33\%, Recall@10 = 100.00\%), проте промах у топ-5 (\texttt{R@5 MISS}) припав на різні запити:
+\begin{dashlist}[wide]
+    \item \textbf{eval-10 для BAAI/bge-base-en-v1.5:} запит стосується оптимального рівня заповнення вихідного люка в Bacterial Vat (\textit{<<What is the optimal output hatch fill percentage for maximum growth and productivity in the Bacterial Vat?>>}). У цільовому чанку (\texttt{Bacterial Vat > Overview}, 1228 символів) перші близько 280 символів займають метадані інфобокса включно з довгим GitHub-посиланням, далі йде опис бактерій, Biolab і радіації, а ключова фраза про \textit{50\% capacity} міститься лише в самому кінці тексту. Через зміщення фокусу на початок чанку та наявність інших чанків про Bacterial Vat цей фрагмент опинився за межами топ-5 (але в межах топ-10).
+    \item \textbf{eval-05 для BAAI/bge-m3:} запит перевіряє, чи ремонтує Ball of Moss повністю зламаний інструмент Tinkers Construct (\textit{<<Does a Ball of Moss repair a completely broken Tinkers Construct tool?>>}). Цільовий чанк походить із квесту \texttt{Tier05Steam > Flint and Steel}, де основний текст і списки предметів стосуються крафту кресала та подорожі в Nether, а потрібне правило згадане лише як побічна примітка з двох речень. Багатомовна модель \texttt{BAAI/bge-m3} у чистому dense-пошуку вище проранжувала профільні статті про ремонт Tinkers Tools, тоді як спеціалізована англомовна \texttt{BAAI/bge-base-en-v1.5} точніше виділила конкретне формулювання з примітки.
+\end{dashlist}
+
+\begin{figure}[H]
+    \centering
+    \paddedimage[width=1\textwidth]{BGE-v1.5-test.png}
+    \caption{Тестовий прогін BAAI/bge-base-en-v1.5}
+    \label{fig:eval-bge-v15}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \paddedimage[width=1\textwidth]{BGE-v3-test.png}
+    \caption{Тестовий прогін BAAI/bge-m3}
+    \label{fig:eval-bge-v3}
+\end{figure}

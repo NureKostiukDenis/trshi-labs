@@ -7,9 +7,9 @@ from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.table import Table
 
-from config import load_config
-from index.sentece_indexig import encode_query, load_model
-from index.vectorization import QdrantVectorizer
+from src.config import SearchConfig, load_config
+from src.index.sentece_indexig import encode_query, load_model
+from src.index.vectorization import QdrantVectorizer
 
 console = Console()
 
@@ -61,20 +61,31 @@ def run_search(
     model: Any,
     query: str,
     *,
-    limit: int = 5,
+    search_config: SearchConfig,
+    limit: int | None = None,
     source: str = "all",
 ) -> None:
-    vector = encode_query(model, query)
-    hits = vectorizer.client.query_points(
-        collection_name=vectorizer.collection_name,
-        query=vector,
-        query_filter=_build_filter(source),
+    vector = encode_query(
+        model,
+        query,
+        query_instruction=search_config.query_instruction,
+    )
+    hits = vectorizer.search(
+        vector,
+        search_config=search_config,
         limit=limit,
-    ).points
+        query_filter=_build_filter(source),
+    )
     _render_results(hits, query, source)
 
 
-def interactive_tui(vectorizer: QdrantVectorizer, model: Any, limit: int = 5) -> None:
+def interactive_tui(
+    vectorizer: QdrantVectorizer,
+    model: Any,
+    search_config: SearchConfig,
+    limit: int | None = None,
+) -> None:
+    limit = limit if limit is not None else search_config.top_k
     source = "all"
     console.print(
         Panel(
@@ -121,13 +132,21 @@ def interactive_tui(vectorizer: QdrantVectorizer, model: Any, limit: int = 5) ->
                 console.print("[red]Usage: /top N (N > 0)[/red]")
             continue
 
-        run_search(vectorizer, model, text, limit=limit, source=source)
+        run_search(
+            vectorizer,
+            model,
+            text,
+            search_config=search_config,
+            limit=limit,
+            source=source,
+        )
 
 
 def main() -> None:
+    cfg = load_config()
     parser = argparse.ArgumentParser(description="Interactive TUI search over Qdrant.")
     parser.add_argument("query", nargs="*", help="Optional one-shot search query.")
-    parser.add_argument("--top", type=int, default=5, help="Number of results.")
+    parser.add_argument("--top", type=int, default=cfg.search.top_k, help="Number of results.")
     parser.add_argument(
         "--source",
         choices=("all", "wiki", "quest"),
@@ -136,7 +155,6 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    cfg = load_config()
     with console.status("[bold green]Loading embedding model and Qdrant...[/bold green]"):
         model = load_model(cfg.index.model_name, device=cfg.index.device)
         vectorizer = QdrantVectorizer(cfg.qdrant)
@@ -146,11 +164,12 @@ def main() -> None:
             vectorizer,
             model,
             " ".join(args.query),
+            search_config=cfg.search,
             limit=args.top,
             source=args.source,
         )
     else:
-        interactive_tui(vectorizer, model, limit=args.top)
+        interactive_tui(vectorizer, model, cfg.search, limit=args.top)
 
 
 if __name__ == "__main__":

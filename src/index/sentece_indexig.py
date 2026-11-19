@@ -5,7 +5,7 @@ from typing import Any
 
 from sentence_transformers import SentenceTransformer
 
-DEFAULT_MODEL_NAME = "BAAI/bge-small-en-v1.5"
+DEFAULT_MODEL_NAME = "BAAI/bge-base-en-v1.5"
 BGE_QUERY_INSTRUCTION = "Represent this sentence for searching relevant passages: "
 
 

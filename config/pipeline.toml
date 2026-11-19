@@ -21,16 +21,25 @@ pg_user = "postgres"
 pg_password = "gthn"
 
 [index]
-model_name = "BAAI/bge-small-en-v1.5"
-batch_size = 64
+model_name = "BAAI/bge-base-en-v1.5"
+batch_size = 32
 normalize_embeddings = true
 chunk_files = ["wiki_chunks.jsonl", "quest_chunks.jsonl"]
 
 [qdrant]
 # Supported modes: "local" (embedded disk storage) or "server" (HTTP/gRPC URL)
-mode = "local"
-path = "data/qdrant"
+mode = "server"
+path = "qdrant"
 url = "http://localhost:6333"
 api_key = ""
-collection_name = "gtnh_rag"
+collection_name = "gtnh_rag_v3-bge-base-en-v1.5"
 distance = "cosine"
+hnsw_m = 16
+hnsw_ef_construct = 64
+
+[search]
+top_k = 10
+hnsw_ef = 128
+exact = false
+score_threshold = 0.35
+query_instruction = ""

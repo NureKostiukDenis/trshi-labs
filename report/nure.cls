@@ -41,7 +41,7 @@
 
 \sloppy
 
-% Бібліографія (BibTeX з ugost2008 під вимоги ДСТУ 8302:2015 без довгих тире .—)
+% Бібліографія (BibTeX з ugost2008 під вимоги ДСТУ 8302:2015 без довгих тире .--)
 \AtBeginDocument{%
   \providecommand*{\BibDash}{}%
   \renewcommand*{\BibDash}{}%
@@ -107,7 +107,7 @@
 % Абзацний відступ
 \setlength{\parindent}{5ex}
 \setlength{\parskip}{0pt}
-% Інтервал — полуторний
+% Інтервал -- полуторний
 \linespread{1.3}
 
 % ПЕРЕЛІКИ (СПИСКИ)
