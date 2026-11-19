@@ -9,11 +9,11 @@ import pywikibot
 from pywikibot.site import BaseSite
 from tqdm import tqdm
 
-from config import load_config
 from pipeline.chunking import Chunker, QuestChunkingStrategy, WikiChunkingStrategy
 from pipeline.clean_quests import clean_quests
 from pipeline.clean_wiki import clean_wiki_pages
 from pipeline.enrich_quests import enrich_quests
+from src.config import load_config
 
 WIKI_URL = "https://wiki.gtnewhorizons.com/wiki/Main_Page"
 GIT_URL = "https://github.com/GTNewHorizons/GT-New-Horizons-Modpack/tree/master"
@@ -128,8 +128,8 @@ def download_git_quests(root: Path) -> int:
 def main() -> None:
     cfg = load_config()
 
-    # download_wiki_pages(cfg.wiki_dir, None)
-    # download_git_quests(cfg.quests_dir)
+    download_wiki_pages(cfg.wiki_dir, None)
+    download_git_quests(cfg.quests_dir)
 
     clean_wiki_pages(cfg.wiki_dir, cfg.wiki_clean_dir)
     clean_quests(cfg.quests_dir, cfg.quests_clean_dir)

@@ -7,7 +7,7 @@ from typing import Any
 
 from tqdm import tqdm
 
-from config import DatabaseConfig, get_db_connection, load_config
+from src.config import DatabaseConfig, get_db_connection, load_config
 
 MACHINE_TYPE_PATTERN = re.compile(r"^Machine Type:\s*(.+)$", re.MULTILINE)
 VOLTAGE_PATTERN = re.compile(r"^Voltage IN:\s*(.+)$", re.MULTILINE)

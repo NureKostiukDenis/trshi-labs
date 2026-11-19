@@ -1,7 +1,6 @@
 from src.config import load_config
 from src.index.sentece_indexig import (
     encode_chunks_jsonl,
-    encode_query,
     load_model,
 )
 from src.index.vectorization import QdrantVectorizer
@@ -13,6 +12,10 @@ def main() -> None:
 
     model = load_model(idx_cfg.model_name, device=idx_cfg.device)
     dim = model.get_embedding_dimension()
+
+    if dim is None:
+        dim = 512
+
     print(f"Loaded model '{idx_cfg.model_name}' (dim={dim}, device={model.device})")
 
     vectorizer = QdrantVectorizer(cfg.qdrant)

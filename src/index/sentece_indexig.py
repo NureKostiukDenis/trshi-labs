@@ -5,12 +5,9 @@ from typing import Any
 
 from sentence_transformers import SentenceTransformer
 
-DEFAULT_MODEL_NAME = "BAAI/bge-base-en-v1.5"
-BGE_QUERY_INSTRUCTION = "Represent this sentence for searching relevant passages: "
-
 
 def load_model(
-    model_name: str = DEFAULT_MODEL_NAME,
+    model_name: str,
     device: str | None = None,
 ) -> SentenceTransformer:
     """Load a SentenceTransformer embedding model."""
@@ -41,7 +38,7 @@ def encode_query(
     model: SentenceTransformer,
     query: str,
     *,
-    query_instruction: str = BGE_QUERY_INSTRUCTION,
+    query_instruction: str,
     normalize_embeddings: bool = True,
 ) -> list[float]:
     """Encode a single search query into an embedding vector."""
@@ -55,11 +52,7 @@ def encode_query(
 
 def load_chunks_jsonl(jsonl_path: Path) -> list[dict[str, Any]]:
     """Load chunk payload dicts from a JSONL file."""
-    return [
-        json.loads(line)
-        for line in jsonl_path.read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    ]
+    return [json.loads(line) for line in jsonl_path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
 def encode_chunks_jsonl(
