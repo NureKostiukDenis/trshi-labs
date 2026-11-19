@@ -19,3 +19,18 @@ pg_port = 5432
 pg_database = "gtnh-recepties"
 pg_user = "postgres"
 pg_password = "gthn"
+
+[index]
+model_name = "BAAI/bge-small-en-v1.5"
+batch_size = 64
+normalize_embeddings = true
+chunk_files = ["wiki_chunks.jsonl", "quest_chunks.jsonl"]
+
+[qdrant]
+# Supported modes: "local" (embedded disk storage) or "server" (HTTP/gRPC URL)
+mode = "local"
+path = "data/qdrant"
+url = "http://localhost:6333"
+api_key = ""
+collection_name = "gtnh_rag"
+distance = "cosine"
